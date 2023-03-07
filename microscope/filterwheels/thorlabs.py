@@ -20,11 +20,82 @@
 import io
 import threading
 import warnings
+import clr
+import time
 
 import serial
 
 import microscope
 import microscope.abc
+
+
+clr.AddReference("C:\\Program Files\\Thorlabs\\Kinesis\\Thorlabs.MotionControl.DeviceManagerCLI.dll")
+clr.AddReference("C:\\Program Files\\Thorlabs\\Kinesis\\Thorlabs.MotionControl.GenericMotorCLI.dll")
+clr.AddReference("C:\\Program Files\\Thorlabs\\Kinesis\\Thorlabs.MotionControl.Benchtop.StepperMotorCLI.dll")
+from Thorlabs.MotionControl.DeviceManagerCLI import *
+from Thorlabs.MotionControl.GenericMotorCLI import *
+from Thorlabs.MotionControl.Benchtop.StepperMotorCLI import *
+from System import Decimal
+
+class ThorlabsFilterWheelController(microscope.abc.FilterWheel):
+    """ Implements the thorlabs filterwheel set up at ALBA which is controlled
+    by a Thorlabs controller. We implement it as a filterwheel interface because
+    doing the full controller one would be overkill for its use case."""
+
+    # Not real, need to see the actual values through experiments yet
+    position_table = {
+        1: 0,
+        2: 0.5,
+        3: 1,
+        4: 1.5,
+        5: 2,
+        6: 2.5 
+    }
+
+    def __init__(self, serial_no: int, **kwargs) -> None:
+        DeviceManagerCLI.BuildDeviceList()
+        self.device = BenchtopStepperMotor.CreateBenchtopStepperMotor(serial_no)
+        self.device.Connect(serial_no)
+        time.sleep(0.25)
+
+        self.channel = self.device.GetChannel(1)
+
+        if not self.channel.IsSettingsInitialized():
+            self.channe.WaitForSettingsInitialized(5000)
+            assert self.channel.IsSettingsInitialized() is True
+
+        self.channel.StartPolling(250)
+        time.sleep(25)
+        self.channel.EnableDevice()
+        time.sleep(0.25)
+
+        print(f"device Id: {self.channel.DeviceID}")
+
+        # Load any configuration settings needed by the controller/stage
+        self.channel.LoadMotorConfiguration(self.device.DeviceID)
+        # channel_config = self.channel.LoadMotorConfiguration(self.device.DeviceID)
+        # chan_settings = self.channel.MotorDeviceSettings
+
+        # self.channel.GetSettings(chan_settings)
+
+        # channel_config.UpdateCurrentConfiguration()
+
+        # self.channel.SetSettings(chan_settings, True, False)
+
+        super().__init__(positions=6, **kwargs)
+
+    def _do_shutdown(self) -> None:
+        self.channel.StopPolling()
+        self.device.Disconnect(True)
+
+    def _do_set_position(self, position: int) -> None:
+        self.channel.MoveToPosition(Decimal(self.position_table[position]))
+
+    def _do_get_position(self) -> int:
+
+        # This needs to be a reverse look up tabel to know the filter the read
+        # position corresponds to
+        return self.channel.Position
 
 
 class ThorlabsFilterWheel(microscope.abc.FilterWheel):

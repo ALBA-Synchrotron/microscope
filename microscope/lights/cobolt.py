@@ -166,3 +166,9 @@ class CoboltLaser(
 
     def _do_get_power(self) -> float:
         return self._get_power_mw() / self._max_power_mw
+
+    def set_exposure_time(self, value):
+        self.exposure = value
+
+    def get_exposure_time(self):
+        return self.exposure
