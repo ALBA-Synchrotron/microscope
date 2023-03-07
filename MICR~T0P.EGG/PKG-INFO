@@ -1,0 +1,55 @@
+Metadata-Version: 2.1
+Name: microscope
+Version: 0.6.0+dev
+Summary: An interface for control of microscope devices.
+Home-page: https://www.python-microscope.org
+Author: See homepage for a complete list of contributors
+Author-email:  
+License: GPL-3.0+
+Download-URL: https://pypi.org/project/microscope/
+Project-URL: Documentation, https://www.python-microscope.org/doc/
+Project-URL: Source, https://github.com/python-microscope/microscope
+Project-URL: Release notes, https://www.python-microscope.org/doc/news.html
+Project-URL: Tracker, https://github.com/python-microscope/microscope
+Description: Python-Microscope
+        *****************
+        
+        .. image:: https://github.com/python-microscope/python-microscope.org/raw/master/_static/microscope-logo-96-dpi.png
+           :align: center
+           :alt: Python-Microscope logo
+        
+        Python's ``microscope`` package is a free and open source library for:
+        
+        * control of local and remote microscope devices;
+        * aggregation of microscope devices into complex microscopes;
+        * automate microscope experiments with hardware triggers.
+        
+        It is aimed at those that are building their own microscopes or want
+        programmatic control for microscope experiments.  More details can be
+        found in the paper `Python-Microscope: High performance control of
+        arbitrarily complex and scalable bespoke microscopes
+        <https://www.biorxiv.org/content/10.1101/2021.01.18.427171v1>`__ and
+        in the `online documentation <https://python-microscope.org/>`__.
+        
+        Python Microscope source distribution are available in `PyPI
+        <https://pypi.python.org/pypi/microscope>`__ and can be easily
+        installed with ``pip``::
+        
+            pip install microscope
+        
+        Alternatively, the development sources are available on `github
+        <https://github.com/python-microscope/microscope.git>`__.
+        
+        This package does *not* provide a graphical user interface that a
+        typical microscope user would expect.  Instead, it provides the
+        foundation over which such interfaces can be built.  For a microscope
+        graphical user interface in Python consider using `Microscope-Cockpit
+        <https://www.micron.ox.ac.uk/software/cockpit/>`__.
+        
+Platform: UNKNOWN
+Classifier: Intended Audience :: Science/Research
+Classifier: Topic :: Scientific/Engineering
+Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
+Requires-Python: >=3.7
+Description-Content-Type: text/x-rst
+Provides-Extra: GUI

@@ -268,3 +268,4 @@ class CoboltLaser06DPL(CoboltLaser):
         self.theoretical_power = mW
 
         return answer
+        return self.exposure

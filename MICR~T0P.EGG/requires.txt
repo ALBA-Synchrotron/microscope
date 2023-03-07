@@ -1,0 +1,8 @@
+Pillow
+Pyro4
+hidapi
+numpy
+pyserial
+
+[GUI]
+PySide2

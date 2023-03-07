@@ -1,0 +1,5 @@
+[console_scripts]
+device-server = microscope.device_server:_setuptools_entry_point
+deviceserver = microscope.device_server:_setuptools_entry_point
+microscope-gui = microscope.gui:_setuptools_entry_point [gui]
+
