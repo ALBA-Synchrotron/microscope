@@ -21,6 +21,7 @@
 import logging
 
 import serial
+import numpy as np
 
 import microscope._utils
 import microscope.abc
@@ -54,6 +55,9 @@ class CoboltLaser(
             bytesize=serial.EIGHTBITS,
             parity=serial.PARITY_NONE,
         )
+
+        self.exposure = 100 # ms
+
         # Start a logger.
         response = self.send(b"sn?")
         _logger.info("Cobolt laser serial number: [%s]", response.decode())
@@ -62,7 +66,7 @@ class CoboltLaser(
         response = self.send(b"@cobas 0")
         _logger.info("Response to @cobas 0 [%s]", response.decode())
 
-        self._max_power_mw = float(self.send(b"gmlp?"))
+        self._max_power_mw = 120 # mW. We get this value from the manual
 
         self.initialize()
 
@@ -172,3 +176,95 @@ class CoboltLaser(
 
     def get_exposure_time(self):
         return self.exposure
+    
+
+class CoboltLaser06DPL(CoboltLaser):
+    """Specific Cobolt Laser 06-DPL561nm.
+
+    This class implements specific commands that are only present in the
+    Cobolt Laser 06-DPL561nm.
+
+    """
+
+    def __init__(self, com=None, baud=115200, timeout=0.01, **kwargs):
+        super().__init__(com, baud, timeout, **kwargs)
+
+        # Hardode parameters of the model to transform power to Amperes
+        # They can be found in CSBL-5904
+        self.a = 7.65034104e+02
+        self.b = 1.07097444e-02
+        self.c = 1.96326100e+00
+        self.d = 2.71321903e+03
+
+        # Initialize with power = 0
+        self.theoretical_power = 0
+
+        # Set modulation_low and modulation_high
+        # to theoretical power = 0
+        self._set_modulation_low_I(650)
+        # self._change_modulation_low_mW(self.theoretical_power)
+        self._set_power_mw(self.theoretical_power)
+
+    # Model to transform power (mW) to Ampere (A)
+    def _mW2A(self, x):
+        return self.a * np.tan(self.b * x + self.c) + self.d
+
+    @microscope.abc.SerialDeviceMixin.lock_comms
+    def _set_modulation_high_I(self, mA: float) -> None:
+        mA_str = "%.4f" % mA
+        _logger.info("Setting laser modulation high current to %s mA.", mA_str)
+        return self.send(b"smc " + mA_str.encode())
+
+    @microscope.abc.SerialDeviceMixin.lock_comms
+    def _get_modulation_high_I(self) -> float:
+        if not self.get_is_on():
+            return 0.0
+        success = False
+        # Sometimes the controller returns b'1' rather than the power.
+        while not success:
+            response = self.send(b"gmc?")
+            if response != b"1":
+                success = True        
+        return float(response)
+    
+    @microscope.abc.SerialDeviceMixin.lock_comms
+    def _set_modulation_low_I(self, mA: float) -> None:
+        mA_str = "%.4f" % mA
+        _logger.info("Setting laser modulation low current to %s mA.", mA_str)
+        return self.send(b"slth " + mA_str.encode())
+
+    @microscope.abc.SerialDeviceMixin.lock_comms
+    def _get_modulation_low_I(self) -> float:
+        if not self.get_is_on():
+            return 0.0
+        response = self.send(b"glth?")
+        return float(response)
+
+    def _change_modulation_low_mW(self, mW: float) -> None:
+        equivalent_mA = self._mW2A(mW)
+        self._set_modulation_low_I(equivalent_mA)
+
+    # Overwrite existing method
+    @microscope.abc.SerialDeviceMixin.lock_comms
+    def _get_power_mw(self) -> float:
+        if not self.get_is_on():
+            return 0.0
+
+        return self.theoretical_power
+
+    # Overwrite existing method
+    @microscope.abc.SerialDeviceMixin.lock_comms
+    def _set_power_mw(self, mW: float) -> None:
+        # There is no minimum power in cobolt lasers.  Any
+        # non-negative number is accepted.
+        equivalent_mA = self._mW2A(mW)
+        mA_str = "%.4f" % equivalent_mA
+        mW_str = "%.4f" % mW
+        
+        _logger.info("Equivalent current for %s mW: %s mA", mW_str, mA_str)
+
+        answer = self._set_modulation_high_I(equivalent_mA)
+        
+        self.theoretical_power = mW
+
+        return answer
