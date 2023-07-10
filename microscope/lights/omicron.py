@@ -414,7 +414,7 @@ class OmicronLaser(
         self._max_power_mw = self.get_maximum_power()
         self.exposure = 100 # ms
         self.mode = LaserMode.APC
-        self._trigger_type = TriggerType.SOFTWARE
+        self._trigger_type = TriggerType.FALLING_EDGE
         self.standby = True
 
         _logger.info(
