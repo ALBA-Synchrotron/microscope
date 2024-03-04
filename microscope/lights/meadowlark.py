@@ -82,6 +82,13 @@ class HDMIslm(microscope.abc.Modulator):
             100,
         )
 
+        ## Added by aolle in reques of Kino
+        self.angle = .0
+        self.add_setting("Angle", "float", self.get_angle, self.set_angle, (0,360))
+
+        self.phase = 0
+        self.add_setting("Phase", "float", self.get_phase, self.set_phase, (0,1200))
+
         self.set_sequence([(0, 0, 488e-9)])
         self.initialize()
 
@@ -187,6 +194,26 @@ class HDMIslm(microscope.abc.Modulator):
         max_, min_ = 255, 0
         normalized = (max_ - min_) / (M - m) * (total - m) + min_
         return normalized.astype(np.uint8)
+
+    def get_phase(self):
+        return self.phase
+
+    def set_phase(self, phase):
+        self.phase = phase
+        self.patterns[self.idx_image] = self.gen_pattern(self.angle,
+                                                         self.phase,
+                                                         self.wavelength)
+        self._update()
+
+    def get_angle(self):
+        return self.angle
+
+    def set_angle(self, angle):
+        self.angle = angle
+        self.patterns[self.idx_image] = self.gen_pattern(self.angle,
+                                                         self.phase,
+                                                         self.wavelength)
+        self._update()
 
     def get_focal(self):
         return self.fresnel_focal
