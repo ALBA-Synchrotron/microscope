@@ -82,11 +82,8 @@ class HDMIslm(microscope.abc.Modulator):
             100,
         )
 
-        ## Added by aolle in reques of Kino
-        self.angle = .0
-        self.add_setting("Angle", "float", self.get_angle, self.set_angle, (0,360))
+        self.add_setting("Angle", "float", self.get_angle_foo, self.set_angle_foo, (0,360))
 
-        self.phase = 0
         self.add_setting("Phase", "float", self.get_phase, self.set_phase, (0,1200))
 
         self.set_sequence([(0, 0, 488e-9)])
@@ -205,10 +202,10 @@ class HDMIslm(microscope.abc.Modulator):
                                                          self.wavelength)
         self._update()
 
-    def get_angle(self):
+    def get_angle_foo(self):
         return self.angle
 
-    def set_angle(self, angle):
+    def set_angle_foo(self, angle):
         self.angle = angle
         self.patterns[self.idx_image] = self.gen_pattern(self.angle,
                                                          self.phase,
