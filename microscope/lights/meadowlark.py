@@ -302,20 +302,22 @@ class D5020(microscope.abc.Modulator):
         ans = self._socket.recv(1024)
 
     def calc_voltage(self, theta: float):
+        
+        theta += 90
         theta %= 360
-        if theta < self.minmax[0]:
-            theta += 180
-        if theta > self.minmax[1]:
+        theta -= 90
+
+        if theta > 90:
             theta -= 180
+        
+        
+        # if theta < self.minmax[0]:
+        #     theta += 180
+        # if theta > self.minmax[1]:
+        #     theta -= 180
         if self.coef is not None:
-            angle = np.array([0] * len(self.coef))
-            angle[-1] = theta
-            p = np.poly1d(self.coef - angle)
-            raiz = np.roots(p)
-            raiz = raiz[np.isreal(raiz)]
-            raiz = np.real(raiz)
-            raiz = raiz[raiz > 1]
-            v = float(raiz)
+            p = np.poly1d(self.coef)
+            v = p(theta)
         else:
             v = np.interp(theta, self.calibration[0], self.calibration[1])
         return v
