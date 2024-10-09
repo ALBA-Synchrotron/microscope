@@ -25,11 +25,9 @@ This class allows slm to be exposed over Pyro.
 import logging
 import microscope
 import microscope._utils
-import os
 import socket
 import threading
 import numpy as np
-import Pyro4
 
 from PIL import Image, ImageOps
 from PyQt5.QtWidgets import QApplication, QDesktopWidget, QLabel, QMainWindow
@@ -82,6 +80,7 @@ class HDMIslm(microscope.abc.Modulator):
             100,
         )
 
+        self.angle_helper = 0
         self.add_setting("Angle", "float", self.get_angle_foo, self.set_angle_foo, (0,360))
 
         self.add_setting("Phase", "float", self.get_phase, self.set_phase, (0,1200))
@@ -203,11 +202,11 @@ class HDMIslm(microscope.abc.Modulator):
         self._update()
 
     def get_angle_foo(self):
-        return self.angle
+        return self.angle_helper
 
     def set_angle_foo(self, angle):
-        self.angle = angle
-        self.patterns[self.idx_image] = self.gen_pattern(self.angle,
+        self.angle_helper = angle
+        self.patterns[self.idx_image] = self.gen_pattern(self.angle_helper,
                                                          self.phase,
                                                          self.wavelength)
         self._update()
