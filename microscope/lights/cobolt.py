@@ -25,6 +25,11 @@ import numpy as np
 
 import microscope._utils
 import microscope.abc
+from functools import partial
+from microscope import TriggerMode, TriggerType
+from microscope.win32 import MicroscopeWindowsService
+from microscope.abc import SerialDeviceMixin
+import threading
 
 
 _logger = logging.getLogger(__name__)
@@ -56,7 +61,7 @@ class CoboltLaser(
             parity=serial.PARITY_NONE,
         )
 
-        self.exposure = 100 # ms
+        self.exposure = 100  # ms
 
         # Start a logger.
         response = self.send(b"sn?")
@@ -66,8 +71,7 @@ class CoboltLaser(
         response = self.send(b"@cobas 0")
         _logger.info("Response to @cobas 0 [%s]", response.decode())
 
-        self._max_power_mw = 120 # mW. We get this value from the manual
-
+        self._max_power_mw = 120  # mW. We get this value from the manual
         self.initialize()
 
     def send(self, command):
@@ -176,7 +180,7 @@ class CoboltLaser(
 
     def get_exposure_time(self):
         return self.exposure
-    
+
 
 class CoboltLaser06DPL(CoboltLaser):
     """Specific Cobolt Laser 06-DPL561nm.
@@ -191,19 +195,42 @@ class CoboltLaser06DPL(CoboltLaser):
 
         # Hardode parameters of the model to transform power to Amperes
         # They can be found in CSBL-5904
-        self.a = 7.65034104e+02
+        self.a = 7.65034104e02
         self.b = 1.07097444e-02
-        self.c = 1.96326100e+00
-        self.d = 2.71321903e+03
+        self.c = 1.96326100e00
+        self.d = 2.71321903e03
 
+        self._trigger_type = TriggerType.SOFTWARE
+        self.standby = True
         # Initialize with power = 0
         self.theoretical_power = 0
+
+        self.add_setting(
+            "Standby",
+            "bool",
+            lambda: self.standby,
+            self.set_standby,
+            None,
+        )
+
+        self.add_setting(
+            "Trigger",
+            "enum",
+            lambda: self._trigger_type,
+            partial(self.set_trigger, tmode=TriggerMode.ONCE),
+            TriggerType,
+        )
 
         # Set modulation_low and modulation_high
         # to theoretical power = 0
         self._set_modulation_low_I(650)
         # self._change_modulation_low_mW(self.theoretical_power)
         self._set_power_mw(self.theoretical_power)
+        self.initialize()
+
+    def initialize(self):
+        self.connection.flushInput()
+        self.send(b"@cobasdr 1")  # to activate direct control
 
     # Model to transform power (mW) to Ampere (A)
     def _mW2A(self, x):
@@ -224,9 +251,9 @@ class CoboltLaser06DPL(CoboltLaser):
         while not success:
             response = self.send(b"gmc?")
             if response != b"1":
-                success = True        
+                success = True
         return float(response)
-    
+
     @microscope.abc.SerialDeviceMixin.lock_comms
     def _set_modulation_low_I(self, mA: float) -> None:
         mA_str = "%.4f" % mA
@@ -260,12 +287,35 @@ class CoboltLaser06DPL(CoboltLaser):
         equivalent_mA = self._mW2A(mW)
         mA_str = "%.4f" % equivalent_mA
         mW_str = "%.4f" % mW
-        
+
         _logger.info("Equivalent current for %s mW: %s mA", mW_str, mA_str)
 
         answer = self._set_modulation_high_I(equivalent_mA)
-        
+
         self.theoretical_power = mW
 
         return answer
-        return self.exposure
+        # return self.exposure
+
+    def set_standby(self, enabled: bool):
+        self.standby = enabled
+        if enabled:
+            self._set_power_mw(0.12)
+        else:
+            self._set_power_mw(100)
+
+    @property
+    def trigger_mode(self):
+        return TriggerMode.ONCE
+
+    @property
+    def trigger_type(self):
+        return self._trigger_type
+
+    def _do_trigger(self):
+        if self._trigger_type == TriggerType.SOFTWARE:
+            self.set_standby(False)
+            timer = threading.Timer(self.exposure / 1000.,
+                                    self.set_standby,
+                                    (True,))
+            timer.start()
