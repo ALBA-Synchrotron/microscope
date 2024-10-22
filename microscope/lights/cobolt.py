@@ -232,8 +232,21 @@ class CoboltLaser06DPL(CoboltLaser):
         self.connection.flushInput()
         self.send(b"@cobasdr 1")  # to activate direct control
 
+        self.send(b"em")  # Keep in current modulation mode always. We control stand-by mode through
+        # the lower threshold value of modulation mode.
+
+        # We set the limit of the lower threshold to max power to use the lower
+        # threshold to deactivate the stand-by mode
+        self._set_maximum_lower_threshold(self._max_power_mw)
+
+
     # Model to transform power (mW) to Ampere (A)
     def _mW2A(self, x):
+        # Coefs are locally hardcoded as this method is run before definition in intialize, weird!
+        self.a = 7.65034104e02
+        self.b = 1.07097444e-02
+        self.c = 1.96326100e00
+        self.d = 2.71321903e03
         return self.a * np.tan(self.b * x + self.c) + self.d
 
     @microscope.abc.SerialDeviceMixin.lock_comms
@@ -299,10 +312,11 @@ class CoboltLaser06DPL(CoboltLaser):
 
     def set_standby(self, enabled: bool):
         self.standby = enabled
-        if enabled:
-            self._set_power_mw(0.12)
-        else:
-            self._set_power_mw(100)
+
+        if enabled:  # lower modulation value set below minimum to get some power.
+            self._set_modulation_low_I(650)
+        else: # lower modulation value set as high value to get continuous illumination.
+            self._set_modulation_low_I(self._mW2A(self.theoretical_power))
 
     @property
     def trigger_mode(self):
@@ -319,3 +333,10 @@ class CoboltLaser06DPL(CoboltLaser):
                                     self.set_standby,
                                     (True,))
             timer.start()
+
+    def _set_maximum_lower_threshold(self, mW):
+        equivalent_mA = self._mW2A(mW)
+        mA_str = "%.4f" % equivalent_mA
+        mW_str = "%.4f" % mW
+        _logger.info("Set maximum lower current threshold to %s mW: %s mA", mW_str, mA_str)
+        return self.send(b"smlth " + mA_str.encode())
